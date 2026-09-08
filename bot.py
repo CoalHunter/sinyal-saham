@@ -154,8 +154,8 @@ def main():
         "saham": output_saham
     }
     
-    path_output = os.path.join(os.path.dirname(__file__), 'data_saham.json')
-    with open(path_output, 'w', encoding='utf-8') as f:
+        # TULIS DENGAN KODE BARU YANG DIJAMIN LOLOS SERVER GITHUB INI:
+    with open('data_saham.json', 'w', encoding='utf-8') as f:
         json.dump(data_final, f, indent=4, ensure_ascii=False)
     print(f"\n🎉 SUKSES BESAR! Engine Akurasi Tinggi telah memperbarui database.")
 
