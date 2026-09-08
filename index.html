@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saham IDX</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+        body { background-color: #0b0f19; color: #f3f4f6; padding: 15px; }
+        nav { background-color: #111827; padding: 12px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #1f2937; }
+        .brand { font-weight: bold; color: #10b981; }
+        .time { font-size: 0.75rem; color: #9ca3af; background-color: #1f2937; padding: 4px 8px; border-radius: 15px; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+        .card { background-color: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; cursor: pointer; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-2px); border-color: #374151; }
+        .top { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .name { font-size: 1.3rem; font-weight: bold; color: #fff; }
+        .badge { font-size: 0.7rem; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
+        .BUY { background-color: #064e3b; color: #34d399; }
+        .STRONG-BUY { background-color: #10b981; color: #0b0f19; }
+        .SELL { background-color: #4c0519; color: #f43f5e; }
+        .HOLD { background-color: #1f2937; color: #d1d5db; }
+        .price { font-size: 1.6rem; font-weight: bold; margin-bottom: 12px; }
+        .up { color: #34d399; font-size: 0.85rem; }
+        .down { color: #f43f5e; font-size: 0.85rem; }
+        .target-box { background: linear-gradient(135deg, #1f2937, #111827); border: 1px dashed #374151; border-radius: 8px; padding: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; }
+        .target-col { width: 48%; }
+        .target-title { font-size: 0.65rem; color: #9ca3af; text-transform: uppercase; margin-bottom: 2px; }
+        .target-val-buy { font-size: 0.95rem; font-weight: bold; color: #34d399; }
+        .target-val-sell { font-size: 0.95rem; font-weight: bold; color: #f43f5e; }
+        .tech-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; background-color: #0b0f19; padding: 8px; border-radius: 6px; text-align: center; margin-bottom: 10px; }
+        .tech-lbl { font-size: 0.6rem; color: #6b7280; }
+        .tech-val { font-size: 0.75rem; font-weight: bold; }
+        .news-box { border-top: 1px solid #1f2937; padding-top: 10px; font-size: 0.75rem; color: #9ca3af; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; padding: 20px; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content { background-color: #111827; border: 1px solid #1f2937; width: 100%; max-width: 450px; border-radius: 12px; padding: 20px; position: relative; }
+        .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; color: #9ca3af; font-size: 1.5rem; cursor: pointer; }
+        .mdl-title { font-size: 1.6rem; font-weight: bold; color: #fff; }
+        .mdl-sub { font-size: 0.75rem; color: #6b7280; margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 8px; }
+        .mdl-section { margin-top: 15px; padding-top: 12px; border-top: 1px solid #1f2937; }
+        .mdl-section-title { font-size: 0.8rem; font-weight: bold; color: #10b981; margin-bottom: 8px; text-transform: uppercase; }
+        .mdl-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem; }
+        .mdl-row span:first-child { color: #9ca3af; }
+        .mdl-row span:last-child { font-weight: bold; }
+        .mdl-news-text { font-size: 0.8rem; color: #d1d5db; line-height: 1.4; font-style: italic; background-color: #0b0f19; padding: 10px; border-radius: 6px; border: 1px solid #1f2937; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="brand">📈 IDX-Sinyal</div>
+        <div class="time" id="utime">Memuat...</div>
+    </nav>
+
+    <div class="grid" id="sgrid"></div>
+
+    <div class="modal-overlay" id="detailModal" onclick="tutupModal(event)">
+        <div class="modal-content">
+            <button class="close-btn" onclick="paksaTutupModal()">&times;</button>
+            <div id="modal-body-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const urlData = 'data_saham.json';
+        let cacheDataSaham = {};
+
+        async function render() {
+            try {
+                const respon = await fetch(urlData);
+                if (!respon.ok) throw new Error("Gagal load JSON");
+                const dataMentah = await respon.json();
+                cacheDataSaham = dataMentah.saham;
+                
+                document.getElementById('utime').innerText = "🕒 " + dataMentah.terakhir_diperbarui;
+                const container = document.getElementById('sgrid');
+                container.innerHTML = '';
+
+                Object.values(dataMentah.saham).forEach(s => {
+                    const cClass = s.sinyal_rekomendasi.replace(' ', '-');
+                    const pClass = s.perubahan_harga >= 0 ? 'up' : 'down';
+                    const pSign = s.perubahan_harga >= 0 ? '▲ ' : '▼ ';
+
+                    container.innerHTML += `
+                        <div class="card" onclick="bukaDetail('${s.ticker}')">
+                            <div class="top">
+                                <div class="name">${s.ticker}</div>
+                                <span class="badge ${cClass}">${s.sinyal_rekomendasi}</span>
+                            </div>
+                            <div class="price">
+                                <div>Rp ${s.harga_terakhir.toLocaleString('id-ID')}</div>
+                                <div class="${pClass}">${pSign}${s.perubahan_harga}%</div>
+                            </div>
+                            <div class="target-box">
+                                <div class="target-col">
+                                    <div class="target-title">Target Beli</div>
+                                    <div class="target-val-buy">Rp ${s.target_beli.toLocaleString('id-ID')}</div>
+                                </div>
+                                <div class="target-col" style="text-align: right;">
+                                    <div class="target-title">Target Jual</div>
+                                    <div class="target-val-sell">Rp ${s.target_jual.toLocaleString('id-ID')}</div>
+                                </div>
+                            </div>
+                            <div class="tech-box">
+                                <div><div class="tech-lbl">RSI</div><div class="tech-val">${s.rsi}</div></div>
+                                <div><div class="tech-lbl">MA20</div><div class="tech-val">Rp ${s.ma20.toLocaleString('id-ID')}</div></div>
+                                <div><div class="tech-lbl">MA50</div><div class="tech-val">Rp ${s.ma50.toLocaleString('id-ID')}</div></div>
+                            </div>
+                            <div class="news-box">
+                                ⏱️ <strong>${s.jangka_waktu}</strong>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                document.getElementById('utime').innerText = "❌ Gagal sinkronisasi data lokal";
+            }
+        }
+        function bukaDetail(tickerKey) {
+            const saham = cacheDataSaham[tickerKey];
+            if (!saham) return;
+
+            const pClass = saham.perubahan_harga >= 0 ? 'up' : 'down';
+            const pSign = saham.perubahan_harga >= 0 ? '▲ ' : '▼ ';
+            const bdy = document.getElementById('modal-body-content');
+            
+            bdy.innerHTML = `
+                <div class="mdl-title">${saham.ticker}</div>
+                <div class="mdl-sub">Bursa Efek Indonesia • Strategi Analisis</div>
+                
+                <div class="mdl-row"><span>Harga Saat Ini</span><span style="color: #fff;">Rp ${saham.harga_terakhir.toLocaleString('id-ID')}</span></div>
+                <div class="mdl-row"><span>Perubahan Harga</span><span class="${pClass}">${pSign}${saham.perubahan_harga}%</span></div>
+                <div class="mdl-row"><span>Sinyal Sistem</span><span class="badge ${saham.sinyal_rekomendasi.replace(' ', '-')}">${saham.sinyal_rekomendasi}</span></div>
+
+                <div class="mdl-section" style="background-color: #0b0f19; padding: 10px; border-radius: 8px; border: 1px dashed #374151;">
+                    <div class="mdl-section-title" style="color: #60a5fa;">🎯 Target Investasi & Trading</div>
+                    <div class="mdl-row"><span>Target Antre Beli</span><span style="color: #34d399;">Rp ${saham.target_beli.toLocaleString('id-ID')}</span></div>
+                    <div class="mdl-row"><span>Target Ambil Untung</span><span style="color: #f43f5e;">Rp ${saham.target_jual.toLocaleString('id-ID')}</span></div>
+                    <div class="mdl-row"><span>Estimasi Jangka Waktu</span><span style="color: #fb923c;">${saham.jangka_waktu}</span></div>
+                </div>
+
+                <div class="mdl-section">
+                    <div class="mdl-section-title">📊 Nilai Indikator Teknikal</div>
+                    <div class="mdl-row"><span>RSI (14)</span><span>${saham.rsi}</span></div>
+                    <div class="mdl-row"><span>MA (20 Hari)</span><span>Rp ${saham.ma20.toLocaleString('id-ID')}</span></div>
+                    <div class="mdl-row"><span>MA (50 Hari)</span><span>Rp ${saham.ma50.toLocaleString('id-ID')}</span></div>
+                </div>
+
+                <div class="mdl-section">
+                    <div class="mdl-section-title">📰 Berita Pasar Saham</div>
+                    <p class="mdl-news-text">"${saham.berita_terkait}"</p>
+                </div>
+            `;
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function paksaTutupModal() { 
+            document.getElementById('detailModal').classList.remove('active'); 
+        }
+        
+        function tutupModal(e) { 
+            if (e.target.id === 'detailModal') { paksaTutupModal(); } 
+        }
+        
+        window.onload = render;
+    </script>
+</body>
+</html>
